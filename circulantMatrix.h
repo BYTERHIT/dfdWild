@@ -35,7 +35,7 @@ public:
 //    circulantMatrix(int n);
     circulantMatrix(int width, int height);
 
-    circulantMatrix(cv::Mat kernel, int winSize);
+    circulantMatrix(cv::Mat kernel, int winWidth,int winHeight);
     cv::Mat GetKernel();//¾í»ýºË
     void UpdateKernel();
     void CaculateEigenValue();

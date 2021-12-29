@@ -15,13 +15,13 @@ using namespace std;
  * @param d 物体深度
  * @return d处的点光源在p下的模糊核半径
  */
-double GetBlurRadii(double p,double pg, double u0, double a, double d)
-{
-    double v0 = 1./(pg-1./u0);
-    double v = p - 1./d;
-    double r = a*v0*(1./v0 - 1./v);
-    return abs(r);
-}
+//double GetBlurRadii(double p,double pg, double u0, double a, double d)
+//{
+//    double v0 = 1./(pg-1./u0);
+//    double v = p - 1./d;
+//    double r = a*v0*(1./v0 - 1./v);
+//    return abs(r);
+//}
 /*
  * @brief 获取圆盘模型的模糊psf的空域表示
  * @param radius 模糊核半径

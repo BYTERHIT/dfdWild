@@ -15,13 +15,13 @@ int circulantMatrix::imgRows()
 {
     return _ImgHeight;
 }
-circulantMatrix::circulantMatrix(Mat kernel, int winSize) {
-    init(winSize, winSize);
-    int anchor = (kernel.rows-1) / 2 * winSize + (kernel.cols-1) / 2;
-    int offset = _MtxCols - ((kernel.rows -1) * winSize + kernel.cols -1);
+circulantMatrix::circulantMatrix(Mat kernel, int winWidth, int winHeight) {
+    init(winWidth, winHeight);
+    int anchor = (kernel.rows-1) / 2 * winWidth + (kernel.cols-1) / 2;
+    int offset = _MtxCols - ((kernel.rows -1) * winWidth + kernel.cols -1);
     for(int i = 0; i< kernel.rows; i++)
     {
-        int linOffset = i * winSize;
+        int linOffset = i * winWidth;
         for(int j = 0; j < kernel.cols; j++)
         {
             int key = linOffset + j;
@@ -222,7 +222,7 @@ Mat circulantMatrix::operator * (Mat b)//p = conj(y)*x caculate corr not conv
     int optSize = _MtxCols;// getOptimalDFTSize(_MtxCols);
     Mat bExpand;
     int margin[2] = { _ImgHeight - b.rows ,_ImgWidth - b.cols };//bottom,right;
-    copyMakeBorder(b, bExpand, margin[0]/2, margin[0] / 2, margin[1] / 2, margin[1] / 2, BORDER_CONSTANT, Scalar(0.));
+    copyMakeBorder(b, bExpand, margin[0] / 2, margin[0] / 2, margin[1] / 2, margin[1] / 2, BORDER_REFLECT101);// BORDER_CONSTANT, Scalar(0.));
     Mat v = Mat::zeros(1, optSize,CV_64FC1);
     Mat bRow = bExpand.reshape(0,1);
     Rect roi = Rect(0,0,bRow.cols,bRow.rows);

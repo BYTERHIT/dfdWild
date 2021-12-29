@@ -10,8 +10,9 @@
 #include "mat_vector.h"
 #include "RMCBDFastAlterMin.h"
 #include "SparseMatTools.h"
-//#include "circulantMatrix.h"
+#include "circulantMatrix.h"
 #include "BCCB.h"
+#include "tgvOperator.h"
 using namespace cv;
 using namespace std;
 using namespace Eigen;
@@ -201,32 +202,35 @@ MatrixXd GenU(Mat u, int L)
     return Umtx;
 }
 
-RMCBDFastAlterMin::RMCBDFastAlterMin(int winSize)
+RMCBDFastAlterMin::RMCBDFastAlterMin(int winWidth, int winHeight)
 {
-    _Dx = GenDx(winSize,winSize);
-    _Dy = GenDy(winSize,winSize);
-    _Dx_t = _Dx.transpose();
-    _Dy_t = _Dy.transpose();
-    _SumDxyt = _Dx_t * _Dx + _Dy_t * _Dy;
-    _winSize = winSize;
+    //_Dx = GenDx(winWidth, winWidth);
+    //_Dy = GenDy(winHeight, winHeight);
+    //_Dx_t = _Dx.transpose();
+    //_Dy_t = _Dy.transpose();
+    //_SumDxyt = _Dx_t * _Dx + _Dy_t * _Dy;
+    _winHeight = winHeight;
+    _winWidth = winWidth;
 
 }
 typedef BCCB CMT;
-Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h) {
+Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h, double minTol, int maxLoop) {
 
     int rows = g[0].rows, cols = g[0].cols;
     int L = h[0].cols;
-    assert(rows==cols);
-    assert(rows==_winSize);
+    assert(cols ==_winWidth);
+    assert(rows==_winHeight);
     assert(L%2);
-    int N = _winSize + L -1;
+    int N = _winWidth + L -1;
+    int M = _winHeight + L - 1;
     int NN = N*N;
+    int MM = M * M;
     Mat u = uInit.clone();
 
-    Mat Vx = Mat::zeros(N, N,CV_64FC1);
-    Mat Vy = Mat::zeros(N, N,CV_64FC1);
-    Mat Ax = Mat::zeros(N, N,CV_64FC1);
-    Mat Ay = Mat::zeros(N, N,CV_64FC1);
+    Mat Vx = Mat::zeros(M, N,CV_64FC1);
+    Mat Vy = Mat::zeros(M, N,CV_64FC1);
+    Mat Ax = Mat::zeros(M, N,CV_64FC1);
+    Mat Ay = Mat::zeros(M, N,CV_64FC1);
 
     //Mat Vx = Mat::zeros(rows, cols, CV_64FC1);
     //Mat Vy = Mat::zeros(rows, cols, CV_64FC1);
@@ -240,8 +244,8 @@ Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h) {
     h1.convertTo(h1,CV_64FC1);
     h2.convertTo(h2,CV_64FC1);
 
-    CMT H1(h1,N,N);
-    CMT H2(h2,N,N);
+    CMT H1(h1,N,M);
+    CMT H2(h2,N,M);
     CMT H1_t = H1.transpose();
     CMT H2_t = H2.transpose();
     //前向差分
@@ -262,15 +266,16 @@ Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h) {
     //mLap.at<double>(m / 2 + 1, n / 2) = 1;
     //mLap.at<double>(m / 2 - 1, n / 2) = 1;
     //CMT Lap(mLap, N);
-    CMT Dx(mDx,N,N);
-    CMT Dy(mDy,N,N);
+    CMT Dx(mDx,N,M);
+    CMT Dy(mDy,N,M);
     CMT Dy_t = Dy.transpose();
     CMT Dx_t = Dx.transpose();
     CMT Lap = Dx_t * Dx + Dy_t * Dy;//拉普拉斯算子，带循环边界的
     //Mat kernel = Dy_t.GetKernel();
     //CMT LapTest(kernel, N, N);
 
-
+    H1.CaculateEigenValue();
+    H2.CaculateEigenValue();
     CMT Den = H1_t * H1 + H2_t * H2 + _alpha / _gamma * Lap;
     //u = H1DenInv
     Den.GetInverseEigen();
@@ -284,11 +289,11 @@ Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h) {
     //copyMakeBorder(g1,g1Expand,)
     Mat HtGvDenInv = H1tDenInv * g1 + H2tDenInv * g2;
     Mat uExpand;
-    int margin[2] = { N - u.rows,N - u.cols };
+    int margin[2] = { M - u.rows,N - u.cols };
     copyMakeBorder(u, uExpand, margin[0]/2, margin[0]/2, margin[1]/2,margin[1]/2,BORDER_REFLECT101/*,Scalar(0.)*/);
     //uExpand = u.clone();
     int i = 0;
-    while(i<20)
+    while(i< maxLoop)
     {
         Mat DxU = Dx * uExpand;// Expand;
         Mat DyU = Dy * uExpand;// Expand;
@@ -313,16 +318,157 @@ Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h) {
         double L1 = sum(abs(uExpand))[0];
         double tol = err /L1;// +sum(bias2)[0];
         cout<<"ustep: i \t" <<i << "\t tol \t" <<tol<<endl;
+#ifdef DEBUG
         Mat uShow;
         uExpand.convertTo(uShow, CV_8UC1,255.);
         namedWindow("u", WINDOW_NORMAL);
         imshow("u", uShow);
         waitKey(1);
-        if(tol < 1e-3)
+#endif
+        if(tol < minTol)
             break;
         i++;
     }
     return uExpand(Rect(margin[0] / 2, margin[1] / 2, cols, rows)).clone();// 
+}
+Mat RMCBDFastAlterMin::u_step_tgv(mat_vector g, cv::Mat uInit, mat_vector h,double alpha_u, double alpha_w, double lambda,  double minTol, int maxLoop) {
+
+    int rows = g[0].rows, cols = g[0].cols;
+    int L = h[0].cols;
+    assert(cols ==_winWidth);
+    assert(rows==_winHeight);
+    assert(L%2);
+    double theta_n = 1 ;
+
+    double tau = 1,sigma = theta_n/tau;
+    double tau_u = 1./(4*alpha_u);
+    double tau_w = 1./(4*alpha_w + alpha_u);
+    double eta_p = 1./(3. * alpha_u);
+    double eta_q = 1./(2. * alpha_w);
+
+    int N = _winWidth + L -1;
+    int M = _winHeight + L - 1;
+    int NN = N*N;
+    int MM = M * M;
+    //x
+    Mat u = uInit.clone();
+    Mat zeros = Mat::zeros(M, N, CV_64FC1);
+    mat_vector w(2,zeros);
+    mat_vector wBar(2,zeros);
+    mat_vector p(2,zeros);
+    mat_vector q(4,zeros);
+    Mat uBar;
+    //y
+
+    Mat g1 = g[0]; Mat g2 = g[1];
+    Mat h1 = h[0]; Mat h2 = h[1];
+    g1.convertTo(g1,CV_64FC1);
+    g2.convertTo(g2,CV_64FC1);
+    h1.convertTo(h1,CV_64FC1);
+    h2.convertTo(h2,CV_64FC1);
+
+    CMT H1(h1,N,M);
+    CMT H2(h2,N,M);
+    CMT H1_t = H1.transpose();
+    CMT H2_t = H2.transpose();
+    //前向差分
+    Mat mDx = (Mat_<double>(1, 2) << -1, 1);//
+    Mat mDy = (Mat_<double>(2, 1) << -1, 1);//
+    Mat mI = (Mat_<double>(1, 1) << 1);//
+    CMT I(mI,N,M);
+    CMT Dx(mDx,N,M);
+    CMT Dy(mDy,N,M);
+    CMT Dy_t = Dy.transpose();
+    CMT Dx_t = Dx.transpose();
+//    CMT Lap = Dx_t * Dx + Dy_t * Dy;//拉普拉斯算子，带循环边界的
+
+    H1.CaculateEigenValue();
+    H2.CaculateEigenValue();
+    CMT Den = I + tau_u * lambda * (H1_t * H1 + H2_t * H2);
+    //u = H1DenInv
+    Den.GetInverseEigen();
+    CMT H1tDenInv = H1_t.leftDivide(Den);
+    CMT H2tDenInv = H2_t.leftDivide(Den);
+    CMT DenInv = I.leftDivide(Den);
+    //Mat test = H1 * g1;
+//    CMT DxtDenInv =  Dx_t.leftDivide(Den);
+//    CMT DytDenInv = Dy_t.leftDivide(Den);
+//    DxtDenInv =  (4*alpha_u*alpha_u) * DxtDenInv;
+//    DytDenInv =  (4*alpha_u*alpha_u) * DytDenInv;
+    //Mat g1Expand, g2Expand;
+    //copyMakeBorder(g1,g1Expand,)
+    Mat HtGvDenInv = lambda * tau_u * (H1tDenInv * g1 + H2tDenInv * g2);
+    int margin[2] = { M - u.rows,N - u.cols };
+    copyMakeBorder(u, u, margin[0]/2, margin[0]/2, margin[1]/2,margin[1]/2,BORDER_REFLECT101/*,Scalar(0.)*/);
+    uBar = u.clone();
+    Mat u_old = u.clone();
+    //uExpand = u.clone();
+    int i = 0;
+    while(i< maxLoop)
+    {
+        mat_vector u_bar_grad = derivativeForward(uBar,true);
+//        mat_vector u_bar_grad ;//= derivativeForward(uBar);
+//        Mat DxU = Dx * u;
+//        Mat DyU = Dy * u;
+//        u_bar_grad.addItem(DxU);
+//        u_bar_grad.addItem(DyU);
+
+        mat_vector uBarGradMinusWBar = u_bar_grad - wBar;
+        p = p + alpha_u * sigma * eta_p * uBarGradMinusWBar;
+        p = F_STAR_OPERATOR(p, 1.);
+
+        mat_vector w_bar_second_derivative = symmetrizedSecondDerivativeForward(wBar,true);
+//        mat_vector w_bar_second_derivative ;//= symmetrizedSecondDerivativeForward(wBar);
+//        Mat dxW1 = Dx*wBar[0];
+//        Mat dyW1 = Dy*wBar[0];
+//        Mat dxW2 = Dx*wBar[1];
+//        Mat dyW2 = Dy*wBar[1];
+//        w_bar_second_derivative.addItem(dxW1);
+//        w_bar_second_derivative.addItem((dyW1 + dxW2)/2.);
+//        w_bar_second_derivative.addItem((dyW1 + dxW2)/2.);
+//        w_bar_second_derivative.addItem(dyW2);
+
+        q = F_STAR_OPERATOR(q + sigma * eta_q * alpha_w * w_bar_second_derivative, 1.);
+        uBar = u.clone();
+        wBar = w.clone();
+
+        Mat p_div = divergenceForward(p,true);
+//        Mat p_div = -(Dx_t*p[0] + Dy_t*p[1]);// divergenceForward(p);
+
+        Mat u_tmp = uBar + alpha_u * tau * tau_u *p_div;
+        u = DenInv * u_tmp + HtGvDenInv;
+
+        mat_vector q_second_div = secondOrderDivergenceForward(q,true);
+//        mat_vector q_second_div;// = secondOrderDivergenceForward(q);
+//        Mat qd1 = -(Dx_t * q[0] + 0.5*Dy_t*q[1] + 0.5*Dy_t*q[2]);
+//        Mat qd2 = -(Dy_t * q[3] + 0.5*Dx_t*q[1] + 0.5*Dx_t*q[2]);
+//        q_second_div.addItem(qd1);
+//        q_second_div.addItem(qd2);
+
+        w = wBar + (p*alpha_u + alpha_w * q_second_div)*(tau*tau_w);
+        uBar = u + (u - uBar) * theta_n;
+        wBar = w + (w - wBar) * theta_n;
+
+
+        //Mat bias1 = H1*u-g1;
+        //Mat bias2 = H2*u-g2;
+        double err = sum(abs(u_old - u))[0];
+        double L1 = sum(abs(u))[0];
+        double tol = err /L1;// +sum(bias2)[0];
+        cout<<"ustep: i \t" <<i << "\t tol \t" <<tol<<endl;
+        u_old = u.clone();
+#ifdef DEBUG
+        Mat uShow;
+        u.convertTo(uShow, CV_8UC1,255.);
+        namedWindow("u", WINDOW_NORMAL);
+        imshow("u", uShow);
+        waitKey(1);
+#endif
+        if(tol < minTol)
+            break;
+        i++;
+    }
+    return u(Rect(margin[0] / 2, margin[1] / 2, cols, rows)).clone();//
 }
 
 typedef enum{
@@ -450,16 +596,16 @@ mat_vector solve(Mat DenInv,mat_vector b)
     return ret;
 }
 
-mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit)
+mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit, double minTol, int maxLoop)
 {
     int L = hInit[0].cols;
     assert(L%2);
     int LL = L*L;
     int rows = g[0].rows, cols = g[0].cols;
-    assert(rows==cols);
-    assert(rows==_winSize);
-    int N = _winSize;
-    int M = N-L+1;
+    assert(cols == _winWidth);
+    assert(rows==_winHeight);
+//    int N = _winWidth -L +1;
+//    int M = _winHeight-L+1;
     Mat g1 = g[0];
     Mat g2 = g[1];
     g1.convertTo(g1,CV_64FC1);
@@ -491,8 +637,8 @@ mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit)
     MatrixXd DenMtx(Den.rows,Den.cols);
     cv2eigen(Den,DenMtx);
 
-    //LLT<MatrixXd> solver;
-    LDLT<MatrixXd> solver;
+    LLT<MatrixXd> solver;
+    //LDLT<MatrixXd> solver;
     solver.compute(DenMtx);
 
     Mat UtG1 = UtransMulGv(u,g1,L, VALID);
@@ -501,7 +647,7 @@ mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit)
     UtG.addItem(UtG1);
     UtG.addItem(UtG2);
     int i = 0;
-    while (i<40)
+    while (i<maxLoop)
     {
         mat_vector s = h - b;
         s = s - 1./_beta;
@@ -527,6 +673,7 @@ mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit)
         
         double tol = (sum(abs(h1Old - ansMat1))[0] + sum(abs(h2Old - ansMat2))[0] )/(sum(abs(ansMat2))[0] + sum(abs(ansMat1))[0]);
         cout<<"hstep: i \t" <<i << "\t tol \t" <<tol<<endl;
+#ifdef DEBUG
         Mat h1show, h2show;
         ansMat1.convertTo(h1show, CV_8UC1,10000);
         ansMat2.convertTo(h2show, CV_8UC1,10000);
@@ -535,7 +682,8 @@ mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit)
         imshow("h1", h1show);
         imshow("h2", h2show);
         waitKey(1);
-        if(tol < 1e-2)
+#endif
+        if(tol < minTol)
             break;
         i++;
     }
@@ -553,6 +701,8 @@ mat_vector RMCBDFastAlterMin::MCBlindDeconv(mat_vector g, int L, double alpha, d
     _minTol = tol;
     _maxLoop = 10;
     _RDelta = MatrixXd(2*LL,2*LL);
+    double alpha_u = gamma * 1e-1;
+    double alpha_w = 2*alpha_u;
     Mat g1, g2, lapG1, lapG2;
     _g[0].convertTo(g1, CV_32FC1);
     _g[1].convertTo(g2, CV_32FC1);
@@ -598,8 +748,9 @@ mat_vector RMCBDFastAlterMin::MCBlindDeconv(mat_vector g, int L, double alpha, d
     int i = 0;
     while( i < maxLoop)
     {
-        u = u_step(g,u,h);
-        h = h_step(u,g,h);
+        u = u_step_tgv(g,uInit,h,alpha_u,alpha_w,gamma,1e-3, 20);
+        mat_vector hOld = h;
+        h = h_step(u,g,h,1e-3, 40);
         Mat h1 = h[0];
         Mat h2 = h[1];
         Mat tmp1, tmp2;
@@ -607,7 +758,11 @@ mat_vector RMCBDFastAlterMin::MCBlindDeconv(mat_vector g, int L, double alpha, d
         filter2D(u,tmp2,CV_64FC1,h2);
         double tol1 = sum(abs(tmp1-g[0]))[0];
         double tol2 = sum(abs(tmp2-g[1]))[0];
-        cout<<"mcbd: i "<<i <<"\t tol1: " << tol1 <<"\t tol2 : " << tol2<<endl;
+
+        double tol = (sum(abs(hOld[0] - h[0]))[0] + sum(abs(hOld[1] - h[1]))[0] )/(sum(abs(h[0]))[0] + sum(abs(h[1]))[0]);
+        cout << "mcbd: i " << i << "\t tol1: " << tol1 << "\t tol2 : " << tol2 << "\t tol: "<<tol<<endl;
+        if(tol < 1e-2)
+            break;
         i++;
     }
     h.addItem(u);

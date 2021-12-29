@@ -20,6 +20,7 @@ public:
     mat_vector():std::vector<cv::Mat>(){
     }
 
+
     void addItem(cv::Mat item){
         this->push_back(item);
         width = item.cols;
@@ -37,6 +38,17 @@ public:
         }
         return vec;
     }
+    mat_vector t() {
+        mat_vector vec;
+        for (int i = 0; i < this->size(); i++)
+        {
+            cv::Mat trans;
+            trans = this->operator[](i).t();
+            vec.addItem(trans);
+        }
+        return vec;
+    }
+
     mat_vector operator-(const mat_vector&b) {
         mat_vector vec;
         assert(this->size() == b.size());

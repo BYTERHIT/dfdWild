@@ -20,6 +20,7 @@ private:
 public:
     BCCB(cv::Mat kernel, int winWidth, int winHeight,bool reshuffle = true);
     BCCB(int width, int height);
+    BCCB();
     BCCB operator + (BCCB b);
     BCCB& operator = (const BCCB &b);
     BCCB operator - (BCCB b);
@@ -36,6 +37,7 @@ public:
 
     void CaculateEigenValue();
     cv::Mat GetInverseEigen();
+    cv::Mat GetEigen();
     template<typename T>
     BCCB operator*(T b)
     {
