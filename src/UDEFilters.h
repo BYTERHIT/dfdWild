@@ -15,27 +15,28 @@ typedef struct
     double dep;
     double simga1;
     double simga2;
-    double pr;
+    cv::Mat pr;
 } UDEF;//unbiased defocus equlization filters
 
-typedef struct {
+typedef struct qp_filter_st{
     double dpStar = 0.;
     double qp =0.;
-//    cv::Point2d vpStar = cv::Point2d(0,0);//TODO 先不考虑光流
     double simgap_2=0.;//simgap^-2
     double Qp(double d,cv::Point2d v=cv::Point2d(0,0)){
        return simgap_2 * pow(d-dpStar,2) + qp;
     }
-} QP_FITER;
-class UDEFilters {
-private:
-    double _sigmai;//图像白噪声，需要通过图像标定计算
-    std::vector<UDEF> _udefList;
-    cv::Size _Sz;
-public:
-    void init(double depthMin, double depthMax, int kerSize,double sigmai, int patchWidth, int patchHeight);
-    QP_FITER GetQpFiter(cv::Mat i1, cv::Mat i2);
-};
+}QP_FITER;
+typedef struct qp_fitter_mat{
+    cv::Mat dpStar;
+    cv::Mat qp;
+    cv::Mat sigmapm2;//sigmap^-2
+    cv::Mat Qp(cv::Mat d){
+        cv::Mat tmp;
+        cv::pow(d-dpStar,2,tmp);
+        return sigmapm2.mul(tmp)  + qp;
+    }
+} QP_FITER_MAT;
+QP_FITER_MAT GetQpFiter(cv::Mat i1, cv::Mat i2,int kerSize, double sigmai, double depMax, double depMin);
 
 
 #endif //DFDWILD_UDEFILTERS_H

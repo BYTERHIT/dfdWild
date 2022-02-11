@@ -27,6 +27,16 @@ public:
         height = item.rows;
         dtype=item.type();
     }
+
+    template<typename T>
+    vector<T> at(cv::Point p)
+    {
+        std::vector<T> v;
+        for(auto iter = this->begin(); iter!= this->end();iter++)
+            v.push_back(iter->template at<T>(p));
+        return v;
+    }
+
     mat_vector operator+(const mat_vector&b){
         mat_vector vec;
         assert(this->size() == b.size());
@@ -45,6 +55,17 @@ public:
             cv::Mat trans;
             trans = this->operator[](i).t();
             vec.addItem(trans);
+        }
+        return vec;
+    }
+
+    mat_vector abs() {
+        mat_vector vec;
+        for (int i = 0; i < this->size(); i++)
+        {
+            cv::Mat mabs;
+            mabs = cv::abs(this->operator[](i));
+            vec.addItem(mabs);
         }
         return vec;
     }
@@ -145,6 +166,18 @@ public:
         return ret;
     }
 
+    mat_vector divide(cv::Mat b)
+    {
+        mat_vector ret;
+        for(int i = 0;i<this->size();i++)
+        {
+            cv::Mat tmp;
+            cv::divide(this->operator[](i),b,tmp);
+            ret.addItem(tmp);
+        }
+        return ret;
+    }
+
     mat_vector clone()
     {
         mat_vector vec;
@@ -199,10 +232,10 @@ mat_vector operator*(T lem,mat_vector mat){
     return mat*lem;
 }
 
-template<typename T>
-mat_vector operator-(T lem,mat_vector mat){
-    return mat-lem;
-}
+//template<typename T>
+//mat_vector operator-(T lem,mat_vector mat){
+//    return mat-lem;
+//}
 template<typename T>
 mat_vector operator/(T lem, mat_vector mat) {
     return mat - lem;

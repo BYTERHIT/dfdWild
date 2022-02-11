@@ -7,20 +7,37 @@ if (NOT OpenCV_FOUND)
     message(FATAL_ERROR "opencv Not Found!")
 endif (NOT OpenCV_FOUND)
 include_directories(${OpenCV_INCLUDE_DIRS})
-add_executable(dfdWild main.cpp cmake-build-debug/DNCuts.cpp
-        cmake-build-debug/DNCuts.h
-        UnbiasedDefocusEqualizationFilters.cpp
-        UnbiasedDefocusEqualizationFilters.h
-        BlurEqualization.cpp
-        BlurEqualization.h
-        RMCBDFastAlterMin.cpp
-        RMCBDFastAlterMin.h
-        SparseMatTools.cpp
-        SparseMatTools.h
-        circulantMatrix.h
-        circulantMatrix.cpp
-        BCCB.cpp
-        BCCB.h
-        tgvOperator.cpp UDEFilters.cpp UDEFilters.h parameters.h)
+add_executable(dfdWild
+        ./src/main.cpp
+        src/DNCuts.cpp
+        src/DNCuts.h
+        src/UnbiasedDefocusEqualizationFilters.cpp
+        src/UnbiasedDefocusEqualizationFilters.h
+        src/BlurEqualization.cpp
+        src/BlurEqualization.h
+        src/RMCBDFastAlterMin.cpp
+        src/RMCBDFastAlterMin.h
+        src/SparseMatTools.cpp
+        src/SparseMatTools.h
+        src/circulantMatrix.h
+        src/circulantMatrix.cpp
+        src/BCCB.cpp
+        src/BCCB.h
+        src/tgvOperator.cpp
+        src/UDEFilters.cpp
+        src/UDEFilters.h
+        src/parameters.h
+        src/maxflow/graph.cpp
+        src/maxflow/block.h
+        src/maxflow/maxflow.cpp
+        src/MRFmin.h
+        src/imageFeature.h
+        src/compressedWeightArray.cpp
+        src/utility.cpp
+        src/compressedWeightArray.h
+        src/RobustEstimation.h
+        src/AlgOperator.h
+        src/AlgOperator.cpp
+        src/ugraph.cpp src/ugraph.h src/wildDfd.cpp src/wildDfd.h src/algTemplate.h src/test/unitTest.cpp src/test/unitTest.h src/myTypes.h)
 target_link_libraries(dfdWild ${OpenCV_LIBS}
         )

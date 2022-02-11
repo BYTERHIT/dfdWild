@@ -317,8 +317,9 @@ Mat RMCBDFastAlterMin::u_step(mat_vector g, cv::Mat uInit, mat_vector h, double 
         double err = sum(abs(oldU - uExpand))[0];
         double L1 = sum(abs(uExpand))[0];
         double tol = err /L1;// +sum(bias2)[0];
-        cout<<"ustep: i \t" <<i << "\t tol \t" <<tol<<endl;
 #ifdef DEBUG
+        cout << "ustep: i \t" << i << "\t tol \t" << tol << endl;
+
         Mat uShow;
         uExpand.convertTo(uShow, CV_8UC1,255.);
         namedWindow("u", WINDOW_NORMAL);
@@ -455,9 +456,10 @@ Mat RMCBDFastAlterMin::u_step_tgv(mat_vector g, cv::Mat uInit, mat_vector h,doub
         double err = sum(abs(u_old - u))[0];
         double L1 = sum(abs(u))[0];
         double tol = err /L1;// +sum(bias2)[0];
-        cout<<"ustep: i \t" <<i << "\t tol \t" <<tol<<endl;
         u_old = u.clone();
 #ifdef DEBUG
+        cout << "ustep: i \t" << i << "\t tol \t" << tol << endl;
+
         Mat uShow;
         u.convertTo(uShow, CV_8UC1,255.);
         namedWindow("u", WINDOW_NORMAL);
@@ -672,8 +674,9 @@ mat_vector RMCBDFastAlterMin::h_step(cv::Mat u, mat_vector g, mat_vector hInit, 
         h.addItem(ansMat2);
         
         double tol = (sum(abs(h1Old - ansMat1))[0] + sum(abs(h2Old - ansMat2))[0] )/(sum(abs(ansMat2))[0] + sum(abs(ansMat1))[0]);
-        cout<<"hstep: i \t" <<i << "\t tol \t" <<tol<<endl;
 #ifdef DEBUG
+        cout << "hstep: i \t" << i << "\t tol \t" << tol << endl;
+
         Mat h1show, h2show;
         ansMat1.convertTo(h1show, CV_8UC1,10000);
         ansMat2.convertTo(h2show, CV_8UC1,10000);
@@ -760,7 +763,9 @@ mat_vector RMCBDFastAlterMin::MCBlindDeconv(mat_vector g, int L, double alpha, d
         double tol2 = sum(abs(tmp2-g[1]))[0];
 
         double tol = (sum(abs(hOld[0] - h[0]))[0] + sum(abs(hOld[1] - h[1]))[0] )/(sum(abs(h[0]))[0] + sum(abs(h[1]))[0]);
+#ifdef DEBUG
         cout << "mcbd: i " << i << "\t tol1: " << tol1 << "\t tol2 : " << tol2 << "\t tol: "<<tol<<endl;
+#endif
         if(tol < 1e-2)
             break;
         i++;

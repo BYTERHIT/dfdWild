@@ -7,7 +7,7 @@
 #include "mat_vector.h"
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
-#define DEBUG
+//#define DEBUG
 /* [1] Sroubek F ,  Milanfar P .
  * Robust Multichannel Blind Deconvolution via Fast Alternating Minimization[J].
  * IEEE Transactions on Image Processing, 2012, 21(4):1687-1700.
